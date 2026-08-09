@@ -9,8 +9,9 @@ import logging
 from typing import Any
 from urllib.parse import unquote_plus
 
-from rag.config import IngestionStatus, Settings
+from rag.config import IngestionStatus, LambdaEventSource, Settings, configure_logging
 from rag.pipeline import build_pipeline
+from rag.s3.document_store import s3_uri
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +26,34 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     Returns:
         The ingestion result for every record in the event.
     """
-    pipeline = build_pipeline(Settings.from_env())
+    settings = Settings.from_env()
+    configure_logging(settings.log_level)
+    objects = _s3_objects(event)
+    logger.info(
+        "lambda invoked request_id=%s event_source=%s objects=%s vector_bucket=%s "
+        "vector_index=%s region=%s model=%s",
+        getattr(context, "aws_request_id", None),
+        _event_source(event),
+        len(objects),
+        settings.s3_vector_bucket,
+        settings.s3_vector_index,
+        settings.aws_region,
+        settings.embedding_model_id,
+    )
+    if not objects:
+        logger.warning("no s3 objects in event")
+    pipeline = build_pipeline(settings)
     results: list[dict[str, Any]] = []
-    for bucket, key in _s3_objects(event):
+    for bucket, key in objects:
+        location = s3_uri(bucket, key)
         try:
+            logger.info("ingest start %s", location)
             chunks = pipeline.process(bucket, key)
             status = IngestionStatus.OK
             error = None
+            logger.info("ingest ok %s chunks=%s", location, chunks)
         except Exception as exc:
-            logger.exception("failed to ingest s3://%s/%s", bucket, key)
+            logger.exception("ingest failed %s", location)
             chunks = 0
             status = IngestionStatus.ERROR
             error = str(exc)
@@ -46,7 +66,14 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 "error": error,
             }
         )
+    logger.info("lambda complete results=%s", len(results))
     return {"results": results}
+
+
+def _event_source(event: Mapping[str, Any]) -> LambdaEventSource:
+    if "Records" in event:
+        return LambdaEventSource.S3
+    return LambdaEventSource.EVENTBRIDGE
 
 
 def _s3_objects(event: Mapping[str, Any]) -> list[tuple[str, str]]:

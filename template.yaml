@@ -72,6 +72,16 @@ Parameters:
     MinValue: 1
     MaxValue: 500
     Description: Maximum number of vectors sent in one PutVectors call.
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues:
+      - DEBUG
+      - INFO
+      - WARNING
+      - ERROR
+      - CRITICAL
+    Description: Application log level written to CloudWatch.
 
 Resources:
   DocumentBucket:
@@ -144,6 +154,7 @@ Resources:
           EMBEDDING_NORMALIZE: !Ref EmbeddingNormalize
           TEXT_ENCODING: !Ref TextEncoding
           PUT_VECTORS_MAX_BATCH: !Ref PutVectorsMaxBatch
+          LOG_LEVEL: !Ref LogLevel
       Policies:
         - Statement:
             - Sid: ReadDocumentBucket

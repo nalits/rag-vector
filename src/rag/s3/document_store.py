@@ -1,9 +1,13 @@
 """Reading documents from S3."""
 
+import logging
+
 import boto3
 from botocore.exceptions import ClientError
 
 from rag.config import AwsService, Settings
+
+logger = logging.getLogger(__name__)
 
 
 class S3Error(RuntimeError):
@@ -29,11 +33,16 @@ class DocumentStore:
         Returns:
             The object size in bytes.
         """
+        location = s3_uri(bucket, key)
+        logger.info("s3 head_object start %s", location)
         try:
             response = self._client.head_object(Bucket=bucket, Key=key)
         except ClientError as exc:
-            raise S3Error(f"failed to head object {s3_uri(bucket, key)}") from exc
-        return int(response["ContentLength"])
+            logger.exception("s3 head_object failed %s", location)
+            raise S3Error(f"failed to head object {location}") from exc
+        size = int(response["ContentLength"])
+        logger.info("s3 head_object ok %s bytes=%s", location, size)
+        return size
 
     def download(self, bucket: str, key: str) -> bytes:
         """Download the object content at the given location.
@@ -48,11 +57,16 @@ class DocumentStore:
         Returns:
             The object content as bytes.
         """
+        location = s3_uri(bucket, key)
+        logger.info("s3 get_object start %s", location)
         try:
             response = self._client.get_object(Bucket=bucket, Key=key)
         except ClientError as exc:
-            raise S3Error(f"failed to get object {s3_uri(bucket, key)}") from exc
-        return bytes(response["Body"].read())
+            logger.exception("s3 get_object failed %s", location)
+            raise S3Error(f"failed to get object {location}") from exc
+        content = bytes(response["Body"].read())
+        logger.info("s3 get_object ok %s bytes=%s", location, len(content))
+        return content
 
 
 def s3_uri(bucket: str, key: str) -> str:

@@ -29,3 +29,4 @@ default:
         DistanceMetric=cosine
         TextEncoding=utf-8
         PutVectorsMaxBatch=500
+        LogLevel=INFO

@@ -14,3 +14,4 @@ def pipeline_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EMBEDDING_NORMALIZE", "true")
     monkeypatch.setenv("TEXT_ENCODING", "utf-8")
     monkeypatch.setenv("PUT_VECTORS_MAX_BATCH", "500")
+    monkeypatch.setenv("LOG_LEVEL", "INFO")

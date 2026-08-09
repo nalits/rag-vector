@@ -1,16 +1,19 @@
 """Orchestrates the RAG ingestion pipeline."""
 
+import logging
 from typing import Protocol
 
 from langchain_core.documents import Document
 
 from rag.chunker.splitter import ChunkSplitter
-from rag.config import Settings
+from rag.config import Settings, document_suffix
 from rag.embedder.embeddings import EmbeddingModel
 from rag.loader.document_loader import load_document
 from rag.s3.document_store import DocumentStore, s3_uri
 from rag.validation.validator import validate_document
 from rag.vector_store.s3_vector_store import S3VectorStore
+
+logger = logging.getLogger(__name__)
 
 
 class SupportsDocumentStore(Protocol):
@@ -86,18 +89,50 @@ class RagPipeline:
         Returns:
             The number of chunks stored.
         """
+        location = s3_uri(bucket, key)
+        logger.info(
+            "pipeline start %s suffix=%s vector_bucket=%s vector_index=%s "
+            "chunk_size=%s chunk_overlap=%s",
+            location,
+            document_suffix(key),
+            self._settings.s3_vector_bucket,
+            self._settings.s3_vector_index,
+            self._settings.chunk_size,
+            self._settings.chunk_overlap,
+        )
         size = self._document_store.size(bucket, key)
+        logger.info("object size %s bytes=%s", location, size)
         validate_document(key, size, self._settings)
+        logger.info("validation ok %s max_bytes=%s", location, self._settings.max_file_size_bytes)
         content = self._document_store.download(bucket, key)
-        chunks = [
-            chunk
-            for chunk in self._splitter.split(load_document(key, content, self._settings))
-            if chunk.page_content.strip()
-        ]
+        logger.info("download complete %s bytes=%s", location, len(content))
+        documents = load_document(key, content, self._settings)
+        logger.info("loaded documents=%s %s", len(documents), location)
+        raw_chunks = self._splitter.split(documents)
+        chunks = [chunk for chunk in raw_chunks if chunk.page_content.strip()]
+        blank_skipped = len(raw_chunks) - len(chunks)
+        logger.info(
+            "chunked %s total=%s non_empty=%s blank_skipped=%s",
+            location,
+            len(raw_chunks),
+            len(chunks),
+            blank_skipped,
+        )
         if not chunks:
+            logger.warning(
+                "no non-empty chunks; skipping embeddings and vector store %s",
+                location,
+            )
             return 0
         embeddings = self._embeddings.embed_documents([chunk.page_content for chunk in chunks])
-        self._vector_store.store_vectors(chunks, embeddings, s3_uri(bucket, key))
+        logger.info(
+            "embeddings ready %s count=%s dimensions=%s",
+            location,
+            len(embeddings),
+            self._settings.embedding_dimensions,
+        )
+        self._vector_store.store_vectors(chunks, embeddings, location)
+        logger.info("pipeline stored %s chunks=%s", location, len(chunks))
         return len(chunks)
 
 
@@ -110,6 +145,14 @@ def build_pipeline(settings: Settings) -> RagPipeline:
     Returns:
         A fully wired ingestion pipeline.
     """
+    logger.info(
+        "build pipeline region=%s vector_bucket=%s vector_index=%s model=%s dimensions=%s",
+        settings.aws_region,
+        settings.s3_vector_bucket,
+        settings.s3_vector_index,
+        settings.embedding_model_id,
+        settings.embedding_dimensions,
+    )
     return RagPipeline(
         document_store=DocumentStore(settings),
         splitter=ChunkSplitter(settings),

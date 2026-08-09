@@ -1,6 +1,15 @@
+import logging
+
 import pytest
 
-from rag.config import DocumentExtension, EnvVar, Settings, document_suffix
+from rag.config import (
+    DocumentExtension,
+    EnvVar,
+    LogLevel,
+    Settings,
+    configure_logging,
+    document_suffix,
+)
 
 
 def test_settings_from_env() -> None:
@@ -17,6 +26,7 @@ def test_settings_from_env() -> None:
     assert settings.embedding_normalize is True
     assert settings.text_encoding == "utf-8"
     assert settings.put_vectors_max_batch == 500
+    assert settings.log_level == LogLevel.INFO
 
 
 def test_settings_override(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -40,6 +50,7 @@ def test_settings_override(monkeypatch: pytest.MonkeyPatch) -> None:
         EnvVar.S3_VECTOR_INDEX,
         EnvVar.EMBEDDING_MODEL_ID,
         EnvVar.TEXT_ENCODING,
+        EnvVar.LOG_LEVEL,
     ],
 )
 def test_settings_missing_required(name: EnvVar, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -71,6 +82,47 @@ def test_settings_invalid_bool(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EMBEDDING_NORMALIZE", "yes")
     with pytest.raises(ValueError, match="must be true or false"):
         Settings.from_env()
+
+
+def test_settings_invalid_log_level(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LOG_LEVEL", "verbose")
+    with pytest.raises(ValueError, match="LOG_LEVEL"):
+        Settings.from_env()
+
+
+def test_settings_log_level_case_insensitive(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LOG_LEVEL", "debug")
+    assert Settings.from_env().log_level == LogLevel.DEBUG
+
+
+def test_configure_logging_with_existing_handlers() -> None:
+    root = logging.getLogger()
+    assert root.handlers
+    configure_logging(LogLevel.WARNING)
+    assert root.level == logging.WARNING
+    assert logging.getLogger("rag").level == logging.WARNING
+    configure_logging(LogLevel.INFO)
+
+
+def test_configure_logging_adds_handler_when_missing() -> None:
+    root = logging.getLogger()
+    existing = list(root.handlers)
+    added: list[logging.Handler] = []
+    try:
+        for handler in existing:
+            root.removeHandler(handler)
+        configure_logging(LogLevel.INFO)
+        added = [handler for handler in root.handlers if handler not in existing]
+        assert added
+        assert root.level == logging.INFO
+        assert logging.getLogger("rag").level == logging.INFO
+    finally:
+        for handler in added:
+            root.removeHandler(handler)
+        for handler in existing:
+            if handler not in root.handlers:
+                root.addHandler(handler)
+        configure_logging(LogLevel.INFO)
 
 
 def test_settings_invalid_chunk_overlap(monkeypatch: pytest.MonkeyPatch) -> None:

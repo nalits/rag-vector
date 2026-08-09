@@ -81,3 +81,11 @@ def test_lambda_handler_multiple_records(monkeypatch: pytest.MonkeyPatch) -> Non
         None,
     )
     assert [record["status"] for record in result["results"]] == ["ok", "error"]
+
+
+def test_lambda_handler_empty_records(monkeypatch: pytest.MonkeyPatch) -> None:
+    pipeline = Mock()
+    monkeypatch.setattr("rag.handler.build_pipeline", Mock(return_value=pipeline))
+    result = lambda_handler({"Records": []}, None)
+    assert result == {"results": []}
+    pipeline.process.assert_not_called()

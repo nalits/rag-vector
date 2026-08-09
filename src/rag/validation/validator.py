@@ -1,6 +1,10 @@
 """Validation rules for documents uploaded to S3."""
 
+import logging
+
 from rag.config import DocumentExtension, Settings, document_suffix
+
+logger = logging.getLogger(__name__)
 
 
 class UnsupportedDocumentTypeError(RuntimeError):
@@ -41,6 +45,13 @@ def validate_document(key: str, size: int, settings: Settings) -> None:
         UnsupportedDocumentTypeError: If the extension is not allowed.
         DocumentTooLargeError: If the document exceeds the maximum size.
     """
-    document_extension(key)
+    extension = document_extension(key)
+    logger.info(
+        "validate document key=%s extension=%s size_bytes=%s max_bytes=%s",
+        key,
+        extension,
+        size,
+        settings.max_file_size_bytes,
+    )
     if size > settings.max_file_size_bytes:
         raise DocumentTooLargeError(f"document exceeds size limit: {key} ({size} bytes)")

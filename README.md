@@ -54,6 +54,7 @@ Runtime settings are environment variables. Lambda values are defined in
 | `EMBEDDING_NORMALIZE` | `EmbeddingNormalize` | Whether embeddings are L2-normalized (`true` / `false`). |
 | `TEXT_ENCODING` | `TextEncoding` | Encoding for `.txt` and `.md` files. |
 | `PUT_VECTORS_MAX_BATCH` | `PutVectorsMaxBatch` | Max vectors per `PutVectors` call (AWS limit 500). |
+| `LOG_LEVEL` | `LogLevel` | Application log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). |
 | `AWS_REGION` | stack region | AWS region. Set automatically on Lambda; set locally if needed. |
 
 `DistanceMetric` is used only when creating the vector index (`cosine` by default).
@@ -82,6 +83,7 @@ export EMBEDDING_DIMENSIONS=1024
 export EMBEDDING_NORMALIZE=true
 export TEXT_ENCODING=utf-8
 export PUT_VECTORS_MAX_BATCH=500
+export LOG_LEVEL=INFO
 
 uv run rag ingest --bucket my-documents --key user-guide.md
 ```
@@ -140,6 +142,15 @@ Set these GitHub Actions configuration values for deploy:
 
 Upload a supported document to the `DocumentBucketName` stack output. The function
 requires Amazon Bedrock access to Titan Text Embeddings V2 in the deployed region.
+
+Successful and failed ingestions both write step logs to CloudWatch (`/aws/lambda/<function>`):
+object size, validation, chunk counts, embedding count/dimensions, and each
+`put_vectors` batch. An empty or whitespace-only file logs a warning and does not
+write vectors.
+
+The S3 trigger is a bucket notification, not a Lambda event-source mapping. Confirm
+it under the document bucket **Properties → Event notifications**. The Lambda
+**Triggers** tab often stays empty for this pattern.
 
 > [!NOTE]
 > The Lambda layer excludes `unstructured` (it exceeds the 250 MB unzipped layer

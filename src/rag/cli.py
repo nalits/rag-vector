@@ -7,7 +7,7 @@ from typing import Annotated
 from rich.console import Console
 from typer import Option, Typer
 
-from rag.config import Settings
+from rag.config import Settings, configure_logging
 from rag.pipeline import build_pipeline
 from rag.s3.document_store import s3_uri
 
@@ -25,7 +25,9 @@ def ingest(
     key: Annotated[str, Option(help="S3 object key of the document")],
 ) -> None:
     """Ingest a document from S3 into the S3 vector index."""
-    chunks = build_pipeline(Settings.from_env()).process(bucket, key)
+    settings = Settings.from_env()
+    configure_logging(settings.log_level)
+    chunks = build_pipeline(settings).process(bucket, key)
     Console().print(f"Ingested {chunks} chunks from {s3_uri(bucket, key)}")
 
 

@@ -2,12 +2,15 @@
 
 from collections.abc import Iterator, Sequence
 import json
+import logging
 import uuid
 
 import boto3
 from langchain_core.documents import Document
 
 from rag.config import AwsService, Settings, VectorDataType, VectorMetadataField
+
+logger = logging.getLogger(__name__)
 
 
 class S3VectorStore:
@@ -40,6 +43,12 @@ class S3VectorStore:
                 f"chunks ({len(chunks)}) and embeddings ({len(embeddings)}) count mismatch"
             )
         if not chunks:
+            logger.warning(
+                "put_vectors skipped empty payload bucket=%s index=%s source=%s",
+                self._bucket,
+                self._index,
+                source,
+            )
             return
         vectors = [
             {
@@ -55,12 +64,37 @@ class S3VectorStore:
             }
             for chunk, embedding in zip(chunks, embeddings, strict=True)
         ]
+        batch_count = 0
+        logger.info(
+            "put_vectors start bucket=%s index=%s count=%s max_batch=%s source=%s",
+            self._bucket,
+            self._index,
+            len(vectors),
+            self._max_batch,
+            source,
+        )
         for batch in _batched(vectors, self._max_batch):
+            batch_count += 1
+            logger.info(
+                "put_vectors batch bucket=%s index=%s batch=%s size=%s",
+                self._bucket,
+                self._index,
+                batch_count,
+                len(batch),
+            )
             self._client.put_vectors(
                 vectorBucketName=self._bucket,
                 indexName=self._index,
                 vectors=list(batch),
             )
+        logger.info(
+            "put_vectors done bucket=%s index=%s count=%s batches=%s source=%s",
+            self._bucket,
+            self._index,
+            len(vectors),
+            batch_count,
+            source,
+        )
 
 
 def _batched[T](items: Sequence[T], size: int) -> Iterator[Sequence[T]]:

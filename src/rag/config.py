@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum
+import logging
 import os
 from pathlib import Path
 
@@ -27,6 +28,24 @@ class EnvVar(StrEnum):
     EMBEDDING_NORMALIZE = "EMBEDDING_NORMALIZE"
     TEXT_ENCODING = "TEXT_ENCODING"
     PUT_VECTORS_MAX_BATCH = "PUT_VECTORS_MAX_BATCH"
+    LOG_LEVEL = "LOG_LEVEL"
+
+
+class LogLevel(StrEnum):
+    """Supported application log levels."""
+
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"
+
+
+class LambdaEventSource(StrEnum):
+    """Lambda invocation event shapes handled by the ingestion function."""
+
+    S3 = "s3"
+    EVENTBRIDGE = "eventbridge"
 
 
 class DocumentExtension(StrEnum):
@@ -94,6 +113,7 @@ class Settings:
     embedding_normalize: bool
     text_encoding: str
     put_vectors_max_batch: int
+    log_level: LogLevel
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -114,6 +134,7 @@ class Settings:
             embedding_normalize=_required_bool(EnvVar.EMBEDDING_NORMALIZE),
             text_encoding=_required_str(EnvVar.TEXT_ENCODING),
             put_vectors_max_batch=_required_int(EnvVar.PUT_VECTORS_MAX_BATCH),
+            log_level=_required_log_level(EnvVar.LOG_LEVEL),
         )
         settings._validate()
         return settings
@@ -165,6 +186,31 @@ def _required_bool(name: EnvVar) -> bool:
     if value == BooleanString.FALSE:
         return False
     raise ValueError(f"environment variable {name} must be true or false")
+
+
+def _required_log_level(name: EnvVar) -> LogLevel:
+    value = _required_str(name).strip().upper()
+    try:
+        return LogLevel(value)
+    except ValueError:
+        allowed = ", ".join(level.value for level in LogLevel)
+        raise ValueError(f"environment variable {name} must be one of: {allowed}") from None
+
+
+def configure_logging(level: LogLevel) -> None:
+    """Configure root and application loggers for Lambda and the local CLI.
+
+    Args:
+        level: Minimum severity that should be emitted.
+    """
+    numeric_level = logging.getLevelNamesMapping()[level]
+    root = logging.getLogger()
+    if not root.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+        root.addHandler(handler)
+    root.setLevel(numeric_level)
+    logging.getLogger("rag").setLevel(numeric_level)
 
 
 def _aws_region() -> str:

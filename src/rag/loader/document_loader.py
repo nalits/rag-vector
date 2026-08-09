@@ -1,6 +1,7 @@
 """Loading documents into langchain Documents based on file type."""
 
 import importlib
+import logging
 from pathlib import Path
 import tempfile
 
@@ -9,6 +10,8 @@ from langchain_core.documents import Document
 
 from rag.config import DocumentExtension, Settings
 from rag.validation.validator import UnsupportedDocumentTypeError, document_extension
+
+logger = logging.getLogger(__name__)
 
 
 def load_document(key: str, content: bytes, settings: Settings) -> list[Document]:
@@ -28,10 +31,18 @@ def load_document(key: str, content: bytes, settings: Settings) -> list[Document
         The loaded documents.
     """
     extension = document_extension(key)
+    logger.info("load document key=%s extension=%s bytes=%s", key, extension, len(content))
     with tempfile.NamedTemporaryFile(suffix=extension.value) as file:
         file.write(content)
         file.flush()
-        return _load(file.name, extension, settings)
+        documents = _load(file.name, extension, settings)
+    logger.info(
+        "load document done key=%s documents=%s chars=%s",
+        key,
+        len(documents),
+        sum(len(document.page_content) for document in documents),
+    )
+    return documents
 
 
 def _load(path: str, extension: DocumentExtension, settings: Settings) -> list[Document]:
