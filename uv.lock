@@ -2105,6 +2105,12 @@ docs = [
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extra = ["python"] },
 ]
+lambda = [
+    { name = "boto3" },
+    { name = "docx2txt" },
+    { name = "langchain-aws" },
+    { name = "langchain-text-splitters" },
+]
 licenses = [
     { name = "pip-licenses-cli" },
 ]
@@ -2142,6 +2148,12 @@ docs = [
     { name = "mkdocs-htmlproofer-plugin" },
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extras = ["python"] },
+]
+lambda = [
+    { name = "boto3" },
+    { name = "docx2txt" },
+    { name = "langchain-aws" },
+    { name = "langchain-text-splitters" },
 ]
 licenses = [{ name = "pip-licenses-cli" }]
 lint = [{ name = "ruff" }]

@@ -26,9 +26,10 @@ can be run locally through the `rag` CLI.
 rag
 ├── template.yaml          # SAM / CloudFormation stack
 ├── samconfig.yml          # single default SAM environment
-├── Makefile               # layer export and sam build
-├── layer/                 # Lambda layer (requirements.txt generated at build)
-├── src/rag                # Lambda function code (no third-party deps in the zip)
+├── Makefile               # export src/requirements.txt and sam build
+├── src
+│   ├── requirements.txt   # Lambda layer dependencies
+│   └── rag/               # Lambda function code
 ├── .github/workflows/deploy.yml
 ├── tests/
 ├── noxfile.py
@@ -103,7 +104,7 @@ Pushes to `main` deploy after quality and tests pass.
 [`template.yaml`](./template.yaml) creates:
 
 - A private document bucket named `{DocumentBucketName}-{account-id}`.
-- A Lambda layer with third-party Python dependencies.
+- A Lambda layer built from [`src/requirements.txt`](./src/requirements.txt).
 - The ingestion function zip (application code only), invoked on `s3:ObjectCreated:*`.
 - An S3 vector bucket and index sized to the embedding dimensions.
 
@@ -138,8 +139,10 @@ Upload a supported document to the `DocumentBucketName` stack output. The functi
 requires Amazon Bedrock access to Titan Text Embeddings V2 in the deployed region.
 
 > [!NOTE]
-> The legacy `.doc` format requires the `antiword` system package in the Lambda
-> execution environment. `.md`, `.txt`, and `.docx` do not.
+> The Lambda layer excludes `unstructured` (it exceeds the 250 MB unzipped layer
+> limit). `.md`, `.txt`, and `.docx` work in Lambda. Legacy `.doc` files can be
+> ingested locally with `uv run rag ingest` where the full dependency set is
+> installed.
 
 ## Quality checks
 

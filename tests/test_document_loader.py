@@ -29,12 +29,27 @@ def test_load_docx_empty(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_load_doc(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Module:
+        @staticmethod
+        def partition_doc(filename: str) -> list[str]:
+            assert filename.endswith(".doc")
+            return ["paragraph"]
+
     monkeypatch.setattr(
-        "rag.loader.document_loader.partition_doc",
-        lambda filename: ["paragraph"],
+        "rag.loader.document_loader.importlib.import_module",
+        lambda _name: _Module(),
     )
     documents = load_document("report.doc", b"content", Settings.from_env())
     assert documents == [Document(page_content="paragraph")]
+
+
+def test_load_doc_without_unstructured(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _missing(_name: str) -> object:
+        raise ImportError("missing")
+
+    monkeypatch.setattr("rag.loader.document_loader.importlib.import_module", _missing)
+    with pytest.raises(UnsupportedDocumentTypeError, match="unstructured"):
+        load_document("report.doc", b"content", Settings.from_env())
 
 
 def test_load_unsupported_type() -> None:

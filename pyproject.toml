@@ -64,6 +64,12 @@ docs = [
 licenses = [
     "pip-licenses-cli",
 ]
+lambda = [
+    "boto3",
+    "docx2txt",
+    "langchain-aws",
+    "langchain-text-splitters",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.0,<0.12.0"]

@@ -87,5 +87,6 @@ make deploy
 
 The document bucket is created by `template.yaml` on first deploy using
 `DocumentBucketName` from `samconfig.yml`. Later deploys keep that bucket.
-Third-party packages ship as a Lambda layer. Upload supported documents to
-`DocumentBucketName` to trigger ingestion.
+Third-party packages ship as a slim Lambda layer (without `unstructured`, to stay
+under the 250 MB unzipped limit). Upload `.md`, `.txt`, or `.docx` documents to
+trigger ingestion. Legacy `.doc` files are supported in the local CLI only.

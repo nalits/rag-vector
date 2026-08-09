@@ -90,9 +90,8 @@ jobs:
 
       - name: Export Lambda layer dependencies
         run: |
-          mkdir -p layer
-          uv export --frozen --no-default-groups --no-hashes --no-emit-project \
-            --output-file layer/requirements.txt
+          uv export --frozen --only-group lambda --no-hashes --no-emit-project \
+            --output-file src/requirements.txt
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

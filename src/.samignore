@@ -1,0 +1,4 @@
+requirements.txt
+.samignore
+**/__pycache__
+**/*.pyc

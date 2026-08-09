@@ -111,7 +111,7 @@ Resources:
     Properties:
       LayerName: !Sub "${AWS::StackName}-dependencies-${AWS::AccountId}"
       Description: Third-party Python dependencies for the RAG ingestion function
-      ContentUri: layer
+      ContentUri: src
       CompatibleRuntimes:
         - python3.13
       CompatibleArchitectures:

@@ -1,8 +1,7 @@
 .PHONY: layer-requirements build deploy
 
 layer-requirements:
-	mkdir -p layer
-	uv export --frozen --no-default-groups --no-hashes --no-emit-project -o layer/requirements.txt
+	uv export --frozen --only-group lambda --no-hashes --no-emit-project -o src/requirements.txt
 
 build: layer-requirements
 	sam build

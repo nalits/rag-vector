@@ -1,14 +1,14 @@
 """Loading documents into langchain Documents based on file type."""
 
+import importlib
 from pathlib import Path
 import tempfile
 
 import docx2txt
 from langchain_core.documents import Document
-from unstructured.partition.doc import partition_doc
 
 from rag.config import DocumentExtension, Settings
-from rag.validation.validator import document_extension
+from rag.validation.validator import UnsupportedDocumentTypeError, document_extension
 
 
 def load_document(key: str, content: bytes, settings: Settings) -> list[Document]:
@@ -55,5 +55,16 @@ def _load_docx(path: str) -> list[Document]:
 
 
 def _load_doc(path: str) -> list[Document]:
-    elements = partition_doc(filename=path)
+    elements = _partition_doc(path)
     return [Document(page_content="\n".join(str(element) for element in elements))]
+
+
+def _partition_doc(path: str) -> list[object]:
+    """Parse a legacy ``.doc`` file. Optional; omitted from the Lambda layer."""
+    try:
+        module = importlib.import_module("unstructured.partition.doc")
+    except ImportError as exc:
+        raise UnsupportedDocumentTypeError(
+            "legacy .doc files require the unstructured package"
+        ) from exc
+    return list(module.partition_doc(filename=path))
