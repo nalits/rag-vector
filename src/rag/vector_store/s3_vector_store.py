@@ -2,15 +2,12 @@
 
 from collections.abc import Iterator, Sequence
 import json
-from typing import TypeVar
 import uuid
 
 import boto3
 from langchain_core.documents import Document
 
 from rag.config import AwsService, Settings, VectorDataType, VectorMetadataField
-
-_T = TypeVar("_T")
 
 
 class S3VectorStore:
@@ -66,6 +63,6 @@ class S3VectorStore:
             )
 
 
-def _batched(items: Sequence[_T], size: int) -> Iterator[Sequence[_T]]:
+def _batched[T](items: Sequence[T], size: int) -> Iterator[Sequence[T]]:
     for start in range(0, len(items), size):
         yield items[start : start + size]

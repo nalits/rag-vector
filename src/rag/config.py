@@ -7,12 +7,12 @@ function in ``template.yaml``. There are no module-level defaults.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 import os
 from pathlib import Path
 
 
-class EnvVar(str, Enum):
+class EnvVar(StrEnum):
     """Names of environment variables consumed by the pipeline."""
 
     MAX_FILE_SIZE_MB = "MAX_FILE_SIZE_MB"
@@ -29,7 +29,7 @@ class EnvVar(str, Enum):
     PUT_VECTORS_MAX_BATCH = "PUT_VECTORS_MAX_BATCH"
 
 
-class DocumentExtension(str, Enum):
+class DocumentExtension(StrEnum):
     """Document types accepted by the ingestion pipeline."""
 
     MARKDOWN = ".md"
@@ -38,14 +38,14 @@ class DocumentExtension(str, Enum):
     TXT = ".txt"
 
 
-class AwsService(str, Enum):
+class AwsService(StrEnum):
     """Boto3 service identifiers used by the pipeline."""
 
     S3 = "s3"
     S3_VECTORS = "s3vectors"
 
 
-class VectorMetadataField(str, Enum):
+class VectorMetadataField(StrEnum):
     """Metadata keys stored alongside each vector."""
 
     TEXT_CHUNK = "AMAZON_BEDROCK_TEXT_CHUNK"
@@ -53,20 +53,20 @@ class VectorMetadataField(str, Enum):
     SOURCE = "source"
 
 
-class VectorDataType(str, Enum):
+class VectorDataType(StrEnum):
     """S3 Vectors payload data type."""
 
     FLOAT32 = "float32"
 
 
-class IngestionStatus(str, Enum):
+class IngestionStatus(StrEnum):
     """Per-record outcome returned by the Lambda handler."""
 
     OK = "ok"
     ERROR = "error"
 
 
-class BooleanString(str, Enum):
+class BooleanString(StrEnum):
     """Canonical string forms for boolean environment variables."""
 
     TRUE = "true"
