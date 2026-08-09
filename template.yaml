@@ -152,7 +152,7 @@ Resources:
               Effect: Allow
               Action:
                 - s3:GetObject
-              Resource: !Sub "${DocumentBucket.Arn}/*"
+              Resource: !Sub "arn:aws:s3:::${DocumentBucketName}/*"
             - Sid: PutVectors
               Effect: Allow
               Action:
