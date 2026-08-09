@@ -3,14 +3,21 @@
 from collections.abc import Iterator, Sequence
 import json
 import logging
+from typing import TypedDict
 import uuid
 
 import boto3
 from langchain_core.documents import Document
 
-from rag.config import AwsService, Settings, VectorDataType, VectorMetadataField
+from rag.config import AwsService, LogSample, Settings, VectorDataType, VectorMetadataField
 
 logger = logging.getLogger(__name__)
+
+
+class _VectorPayload(TypedDict):
+    key: str
+    data: dict[str, list[float]]
+    metadata: dict[str, str]
 
 
 class S3VectorStore:
@@ -50,7 +57,7 @@ class S3VectorStore:
                 source,
             )
             return
-        vectors = [
+        vectors: list[_VectorPayload] = [
             {
                 "key": str(uuid.uuid4()),
                 "data": {VectorDataType.FLOAT32: embedding},
@@ -95,6 +102,22 @@ class S3VectorStore:
             batch_count,
             source,
         )
+        _log_inserted_sample(vectors[0])
+
+
+def _log_inserted_sample(vector: _VectorPayload) -> None:
+    """Log one newly inserted vector from this upload only."""
+    embedding = vector["data"][VectorDataType.FLOAT32]
+    metadata = vector["metadata"]
+    logger.info(
+        "put_vectors sample inserted key=%s source=%s dimensions=%s "
+        "values_preview=%s text_chunk=%r",
+        vector["key"],
+        metadata[VectorMetadataField.SOURCE],
+        len(embedding),
+        embedding[: LogSample.EMBEDDING_VALUES],
+        metadata[VectorMetadataField.TEXT_CHUNK],
+    )
 
 
 def _batched[T](items: Sequence[T], size: int) -> Iterator[Sequence[T]]:

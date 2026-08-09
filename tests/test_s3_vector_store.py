@@ -1,10 +1,11 @@
 import json
+import logging
 from unittest.mock import Mock
 
 from langchain_core.documents import Document
 import pytest
 
-from rag.config import Settings, VectorMetadataField
+from rag.config import LogSample, Settings, VectorMetadataField
 from rag.vector_store.s3_vector_store import S3VectorStore
 
 
@@ -60,6 +61,28 @@ def test_store_vectors_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     store = _make_store(client, monkeypatch)
     store.store_vectors([], [], "s3://bucket/key")
     client.put_vectors.assert_not_called()
+
+
+def test_store_vectors_logs_one_new_sample(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    client = Mock()
+    store = _make_store(client, monkeypatch)
+    chunks = [Document(page_content="first chunk"), Document(page_content="second chunk")]
+    with caplog.at_level(logging.INFO):
+        store.store_vectors(chunks, [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], "s3://bucket/notes.txt")
+    samples = [
+        record.message
+        for record in caplog.records
+        if "put_vectors sample inserted" in record.message
+    ]
+    assert len(samples) == 1
+    sample = samples[0]
+    assert "source=s3://bucket/notes.txt" in sample
+    assert "dimensions=3" in sample
+    assert str([0.1, 0.2, 0.3][: LogSample.EMBEDDING_VALUES]) in sample
+    assert "first chunk" in sample
+    assert "second chunk" not in sample
 
 
 def test_store_vectors_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:

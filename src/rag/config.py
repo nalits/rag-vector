@@ -98,6 +98,12 @@ class SizeUnit(IntEnum):
     BYTES_PER_MEBIBYTE = 1024 * 1024
 
 
+class LogSample(IntEnum):
+    """Limits for CloudWatch samples of newly inserted vectors."""
+
+    EMBEDDING_VALUES = 8
+
+
 @dataclass(frozen=True)
 class Settings:
     """Immutable pipeline settings loaded from the process environment."""

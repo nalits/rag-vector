@@ -145,7 +145,9 @@ requires Amazon Bedrock access to Titan Text Embeddings V2 in the deployed regio
 
 Successful and failed ingestions both write step logs to CloudWatch (`/aws/lambda/<function>`):
 object size, validation, chunk counts, embedding count/dimensions, and each
-`put_vectors` batch. An empty or whitespace-only file logs a warning and does not
+`put_vectors` batch. After a successful insert, one sample from **this upload only**
+is logged (`put_vectors sample inserted`) with vector key, source URI, embedding
+preview, and chunk text. An empty or whitespace-only file logs a warning and does not
 write vectors.
 
 The S3 trigger is a bucket notification, not a Lambda event-source mapping. Confirm
