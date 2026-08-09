@@ -5,15 +5,15 @@ Description: RAG document ingestion pipeline
 Parameters:
   DocumentBucketName:
     Type: String
-    Description: Name of the document upload bucket. Created on first deploy if it does not exist in this stack.
+    Description: Prefix for the document upload bucket. The account ID is appended so the name is globally unique.
     MinLength: 3
-    MaxLength: 63
+    MaxLength: 50
     AllowedPattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
   VectorBucketName:
     Type: String
-    Description: Name of the S3 vector bucket created by this stack.
+    Description: Prefix for the S3 vector bucket. The account ID is appended so the name is unique in the account.
     MinLength: 3
-    MaxLength: 63
+    MaxLength: 50
     AllowedPattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
   VectorIndexName:
     Type: String
@@ -76,10 +76,8 @@ Parameters:
 Resources:
   DocumentBucket:
     Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
     Properties:
-      BucketName: !Ref DocumentBucketName
+      BucketName: !Sub "${DocumentBucketName}-${AWS::AccountId}"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -93,7 +91,7 @@ Resources:
   VectorBucket:
     Type: AWS::S3Vectors::VectorBucket
     Properties:
-      VectorBucketName: !Ref VectorBucketName
+      VectorBucketName: !Sub "${VectorBucketName}-${AWS::AccountId}"
 
   VectorIndex:
     Type: AWS::S3Vectors::Index
@@ -111,7 +109,7 @@ Resources:
   DependenciesLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub "${AWS::StackName}-dependencies"
+      LayerName: !Sub "${AWS::StackName}-dependencies-${AWS::AccountId}"
       Description: Third-party Python dependencies for the RAG ingestion function
       ContentUri: layer
       CompatibleRuntimes:
@@ -139,7 +137,7 @@ Resources:
           MAX_FILE_SIZE_MB: !Ref MaxFileSizeMb
           CHUNK_SIZE: !Ref ChunkSize
           CHUNK_OVERLAP: !Ref ChunkOverlap
-          S3_VECTOR_BUCKET: !Ref VectorBucketName
+          S3_VECTOR_BUCKET: !Sub "${VectorBucketName}-${AWS::AccountId}"
           S3_VECTOR_INDEX: !Ref VectorIndexName
           EMBEDDING_MODEL_ID: !Ref EmbeddingModelId
           EMBEDDING_DIMENSIONS: !Ref EmbeddingDimensions
@@ -152,7 +150,7 @@ Resources:
               Effect: Allow
               Action:
                 - s3:GetObject
-              Resource: !Sub "arn:aws:s3:::${DocumentBucketName}/*"
+              Resource: !Sub "arn:aws:s3:::${DocumentBucketName}-${AWS::AccountId}/*"
             - Sid: PutVectors
               Effect: Allow
               Action:
@@ -175,9 +173,9 @@ Resources:
 Outputs:
   DocumentBucketName:
     Description: Upload .md, .doc, .docx, or .txt documents to this bucket.
-    Value: !Ref DocumentBucket
+    Value: !Sub "${DocumentBucketName}-${AWS::AccountId}"
   VectorBucketName:
-    Value: !Ref VectorBucketName
+    Value: !Sub "${VectorBucketName}-${AWS::AccountId}"
   VectorIndexName:
     Value: !Ref VectorIndexName
   DependenciesLayer:

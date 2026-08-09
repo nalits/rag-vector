@@ -75,7 +75,7 @@ export CHUNK_SIZE=1000
 export CHUNK_OVERLAP=200
 export S3_VECTOR_BUCKET=rag-vector-bucket
 export S3_VECTOR_INDEX=rag-vector-index
-export AWS_REGION=us-east-1
+export AWS_REGION=eu-west-2
 export EMBEDDING_MODEL_ID=amazon.titan-embed-text-v2:0
 export EMBEDDING_DIMENSIONS=1024
 export EMBEDDING_NORMALIZE=true
@@ -102,14 +102,15 @@ Pushes to `main` deploy after quality and tests pass.
 
 [`template.yaml`](./template.yaml) creates:
 
-- A private document bucket (`DocumentBucketName`) if it is not already in the stack.
+- A private document bucket named `{DocumentBucketName}-{account-id}`.
 - A Lambda layer with third-party Python dependencies.
 - The ingestion function zip (application code only), invoked on `s3:ObjectCreated:*`.
 - An S3 vector bucket and index sized to the embedding dimensions.
 
 Bucket names and other stack values come from [`samconfig.yml`](./samconfig.yml).
 First `sam deploy` creates the document bucket; later deploys keep the existing one.
-Choose unique `DocumentBucketName` and `VectorBucketName` values before the first deploy.
+Bucket prefixes come from [`samconfig.yml`](./samconfig.yml). The account ID is
+appended so names stay unique. Change `region` there to match `AWS_REGION`.
 
 ```shell
 make deploy
@@ -129,7 +130,7 @@ Set these GitHub Actions configuration values for deploy:
 
 | Name | Type | Purpose |
 |:-----|:-----|:--------|
-| `AWS_REGION` | variable | Deploy region (defaults to `us-east-1`). |
+| `AWS_REGION` | variable | Deploy region (defaults to `eu-west-2`). |
 | `AWS_ACCESS_KEY_ID` | variable | Deploy credentials. |
 | `AWS_SECRET_ACCESS_KEY` | secret | Deploy credentials. |
 

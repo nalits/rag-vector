@@ -71,6 +71,9 @@ jobs:
     needs: [quality, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    env:
+      SAM_CLI_TELEMETRY: "0"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -96,7 +99,7 @@ jobs:
         with:
           aws-access-key-id: ${{ vars.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION || 'eu-west-2' }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Install SAM CLI
         uses: aws-actions/setup-sam@v2

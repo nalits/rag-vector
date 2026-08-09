@@ -3,7 +3,7 @@ default:
   global:
     parameters:
       stack_name: rag
-      region: us-east-1
+      region: eu-west-2
   build:
     parameters:
       cached: true
