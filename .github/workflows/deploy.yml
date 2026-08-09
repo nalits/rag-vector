@@ -73,6 +73,8 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       SAM_CLI_TELEMETRY: "0"
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-2' }}
+      STACK_NAME: rag
 
     steps:
       - name: Checkout code
@@ -98,7 +100,7 @@ jobs:
         with:
           aws-access-key-id: ${{ vars.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Install SAM CLI
         uses: aws-actions/setup-sam@v2
@@ -111,5 +113,17 @@ jobs:
       - name: SAM Build
         run: sam build
 
+      - name: Delete stack stuck in ROLLBACK_COMPLETE
+        run: |
+          STATUS="$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --query 'Stacks[0].StackStatus' \
+            --output text 2>/dev/null || true)"
+          if [ "${STATUS}" = "ROLLBACK_COMPLETE" ] || [ "${STATUS}" = "ROLLBACK_FAILED" ]; then
+            echo "Stack ${STACK_NAME} is ${STATUS}; deleting before recreate"
+            aws cloudformation delete-stack --stack-name "${STACK_NAME}"
+            aws cloudformation wait stack-delete-complete --stack-name "${STACK_NAME}"
+          fi
+
       - name: SAM Deploy
-        run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
+        run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --region "${AWS_REGION}"

@@ -127,6 +127,9 @@ sam deploy
 
 `--resolve-s3` in `samconfig.yml` creates the SAM artifact bucket if it is missing.
 
+A stack left in `ROLLBACK_COMPLETE` cannot be updated. `make deploy` and the
+GitHub Actions deploy job delete that failed stack, then create it again.
+
 Set these GitHub Actions configuration values for deploy:
 
 | Name | Type | Purpose |
