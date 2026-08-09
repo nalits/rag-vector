@@ -1,0 +1,31 @@
+version: 0.1
+default:
+  global:
+    parameters:
+      stack_name: rag
+      region: us-east-1
+  build:
+    parameters:
+      cached: true
+      parallel: true
+  validate:
+    parameters:
+      lint: true
+  deploy:
+    parameters:
+      capabilities: CAPABILITY_IAM
+      confirm_changeset: false
+      resolve_s3: true
+      parameter_overrides: >-
+        DocumentBucketName=rag-documents
+        VectorBucketName=rag-vector-bucket
+        VectorIndexName=rag-vector-index
+        MaxFileSizeMb=25
+        ChunkSize=1000
+        ChunkOverlap=200
+        EmbeddingModelId=amazon.titan-embed-text-v2:0
+        EmbeddingDimensions=1024
+        EmbeddingNormalize=true
+        DistanceMetric=cosine
+        TextEncoding=utf-8
+        PutVectorsMaxBatch=500

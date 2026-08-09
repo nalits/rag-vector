@@ -1,0 +1,186 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: RAG document ingestion pipeline
+
+Parameters:
+  DocumentBucketName:
+    Type: String
+    Description: Name of the document upload bucket. Created on first deploy if it does not exist in this stack.
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
+  VectorBucketName:
+    Type: String
+    Description: Name of the S3 vector bucket created by this stack.
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
+  VectorIndexName:
+    Type: String
+    Description: Name of the S3 vector index created by this stack.
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: ^[a-z0-9][a-z0-9.-]*[a-z0-9]$
+  MaxFileSizeMb:
+    Type: Number
+    Default: 25
+    MinValue: 1
+    Description: Maximum accepted document size in megabytes.
+  ChunkSize:
+    Type: Number
+    Default: 1000
+    MinValue: 1
+    Description: Recursive character splitter chunk size.
+  ChunkOverlap:
+    Type: Number
+    Default: 200
+    MinValue: 0
+    Description: Recursive character splitter chunk overlap.
+  EmbeddingModelId:
+    Type: String
+    Default: amazon.titan-embed-text-v2:0
+    Description: Amazon Bedrock embedding model identifier.
+  EmbeddingDimensions:
+    Type: Number
+    Default: 1024
+    AllowedValues:
+      - 256
+      - 512
+      - 1024
+    Description: Titan Text Embeddings V2 output dimensions.
+  EmbeddingNormalize:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: Whether Titan embeddings are L2-normalized.
+  DistanceMetric:
+    Type: String
+    Default: cosine
+    AllowedValues:
+      - cosine
+      - euclidean
+    Description: Distance metric for the S3 vector index.
+  TextEncoding:
+    Type: String
+    Default: utf-8
+    Description: Character encoding for .txt and .md documents.
+  PutVectorsMaxBatch:
+    Type: Number
+    Default: 500
+    MinValue: 1
+    MaxValue: 500
+    Description: Maximum number of vectors sent in one PutVectors call.
+
+Resources:
+  DocumentBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref DocumentBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  VectorBucket:
+    Type: AWS::S3Vectors::VectorBucket
+    Properties:
+      VectorBucketName: !Ref VectorBucketName
+
+  VectorIndex:
+    Type: AWS::S3Vectors::Index
+    Properties:
+      VectorBucketArn: !GetAtt VectorBucket.VectorBucketArn
+      IndexName: !Ref VectorIndexName
+      DataType: float32
+      Dimension: !Ref EmbeddingDimensions
+      DistanceMetric: !Ref DistanceMetric
+      MetadataConfiguration:
+        NonFilterableMetadataKeys:
+          - AMAZON_BEDROCK_TEXT_CHUNK
+          - AMAZON_BEDROCK_METADATA
+
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-dependencies"
+      Description: Third-party Python dependencies for the RAG ingestion function
+      ContentUri: layer
+      CompatibleRuntimes:
+        - python3.13
+      CompatibleArchitectures:
+        - x86_64
+      RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: python3.13
+
+  IngestionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src
+      Handler: rag.handler.lambda_handler
+      Runtime: python3.13
+      Timeout: 300
+      MemorySize: 1024
+      Architectures:
+        - x86_64
+      Layers:
+        - !Ref DependenciesLayer
+      Environment:
+        Variables:
+          MAX_FILE_SIZE_MB: !Ref MaxFileSizeMb
+          CHUNK_SIZE: !Ref ChunkSize
+          CHUNK_OVERLAP: !Ref ChunkOverlap
+          S3_VECTOR_BUCKET: !Ref VectorBucketName
+          S3_VECTOR_INDEX: !Ref VectorIndexName
+          EMBEDDING_MODEL_ID: !Ref EmbeddingModelId
+          EMBEDDING_DIMENSIONS: !Ref EmbeddingDimensions
+          EMBEDDING_NORMALIZE: !Ref EmbeddingNormalize
+          TEXT_ENCODING: !Ref TextEncoding
+          PUT_VECTORS_MAX_BATCH: !Ref PutVectorsMaxBatch
+      Policies:
+        - Statement:
+            - Sid: ReadDocumentBucket
+              Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub "${DocumentBucket.Arn}/*"
+            - Sid: PutVectors
+              Effect: Allow
+              Action:
+                - s3vectors:PutVectors
+              Resource: !GetAtt VectorIndex.IndexArn
+            - Sid: InvokeEmbeddingModel
+              Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: !Sub
+                - "arn:aws:bedrock:${AWS::Region}::foundation-model/${ModelId}"
+                - ModelId: !Ref EmbeddingModelId
+      Events:
+        DocumentUpload:
+          Type: S3
+          Properties:
+            Bucket: !Ref DocumentBucket
+            Events: s3:ObjectCreated:*
+
+Outputs:
+  DocumentBucketName:
+    Description: Upload .md, .doc, .docx, or .txt documents to this bucket.
+    Value: !Ref DocumentBucket
+  VectorBucketName:
+    Value: !Ref VectorBucketName
+  VectorIndexName:
+    Value: !Ref VectorIndexName
+  DependenciesLayer:
+    Value: !Ref DependenciesLayer
+  IngestionFunction:
+    Value: !Ref IngestionFunction
